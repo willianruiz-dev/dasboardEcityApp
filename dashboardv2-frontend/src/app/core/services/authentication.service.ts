@@ -36,14 +36,17 @@ export class AuthenticationService {
   async login(userName: string, password: string): Promise<LoginOutcome> {
     const isMock = this.config.dataProvider() === 'mock';
     // En mock no se cifra; en prod se intenta CIFRADO RSA-OAEP-SHA1 (lo que espera Encryption.DecryptRSA).
-    // Si el servidor no tiene la clave privada correcta o espera texto plano (como tu app C# que envía pwd sin cifrar),
-    // hacemos fallback a texto plano automáticamente.
+    // Si el navegador está en http:// (no seguro) crypto.subtle no existe -> fallback a plain.
+    // Si el servidor espera plain (tu app C#), también hacemos fallback automático.
     let encrypted: string | null = null;
+    let cryptoError: string | null = null;
     if (!isMock) {
       try {
         encrypted = await this.crypto.encryptPassword(password);
       } catch (error) {
-        return { ok: false, message: error instanceof Error ? error.message : 'No fue posible cifrar la contraseña.' };
+        cryptoError = error instanceof Error ? error.message : String(error);
+        console.warn('[auth] Web Crypto no disponible (http no seguro), se usará texto plano como fallback', cryptoError);
+        encrypted = null;
       }
     }
 
@@ -56,21 +59,21 @@ export class AuthenticationService {
     };
 
     try {
-      // Intento 1: cifrado (flujo normal del dashboard)
+      // Si no hay Web Crypto (http no seguro) vamos directo a plain; si no, intentamos cifrado con fallback a plain
       const token = isMock
         ? await tryLogin(password, 'mock/plain')
-        : await tryLogin(encrypted!, 'RSA-OAEP-SHA1').catch(async (err: unknown) => {
-            const msg = err instanceof Error ? err.message : String(err);
-            const status = (err as { status?: number })?.status;
-            // Fallback a texto plano si el backend rechazó el cifrado (tu app C# envía plain sin cifrar)
-            // No hacemos fallback para errores de red (status 0)
-            if (status === 0) throw err;
-            if (status === 400 || msg.includes('incorrecto') || msg.includes('desencript') || msg.includes('token')) {
-              console.warn('[auth] login cifrado falló, reintentando en texto plano (compatibilidad con tu app C#)', msg);
-              return tryLogin(password, 'plain-fallback');
-            }
-            throw err;
-          });
+        : encrypted == null
+          ? await tryLogin(password, `plain-fallback (${cryptoError})`)
+          : await tryLogin(encrypted, 'RSA-OAEP-SHA1').catch(async (err: unknown) => {
+              const msg = err instanceof Error ? err.message : String(err);
+              const status = (err as { status?: number })?.status;
+              if (status === 0) throw err;
+              if (status === 400 || msg.includes('incorrecto') || msg.includes('desencript') || msg.includes('token')) {
+                console.warn('[auth] login cifrado falló, reintentando en texto plano (compatibilidad con tu app C# / http no seguro)', msg);
+                return tryLogin(password, 'plain-fallback');
+              }
+              throw err;
+            });
       if (!token) return { ok: false, message: 'El API no devolvió token. Revisa las credenciales.' };
 
       const user = await firstValueFrom(this.security.loggedUser()).catch(() => null);
