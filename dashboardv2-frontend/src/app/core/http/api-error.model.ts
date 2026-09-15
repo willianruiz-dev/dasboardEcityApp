@@ -23,7 +23,13 @@ export class ApiRequestError extends Error {
       typeof response.error === 'string' ? { message: response.error } : ((response.error ?? null) as { message?: string; statusCode?: number } | null);
     const message = raw?.message;
 
-    if (response.status === 0) return new ApiRequestError('No hay conexión con el API del dashboard. Revisa la red o el proxy.', 0, path);
+    if (response.status === 0)
+      return new ApiRequestError(
+        `No hay conexión con el API del dashboard (${fallbackPath || path || response.url || 'sin URL'}). ` +
+          `Revisa: 1) VPN activa, 2) https://apidashboardv2.e-city.co/swagger abre en tu navegador, 3) si pruebas en localhost usa proxy (npm run start:api:prod).`,
+        0,
+        path
+      );
     if (response.status === 401) return new ApiRequestError(message ?? 'Sesión expirada. Vuelve a iniciar sesión.', 401, path);
     if (response.status === 403) return new ApiRequestError(message ?? 'Tu rol no tiene permisos para este recurso.', 403, path);
     if (response.status === 404) return new ApiRequestError('Sin resultados para la consulta.', 404, path, true, numberOrNull(raw?.statusCode));

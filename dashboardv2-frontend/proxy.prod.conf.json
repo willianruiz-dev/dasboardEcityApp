@@ -1,0 +1,14 @@
+{
+  "/api": {
+    "target": "https://apidashboardv2.e-city.co",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/Auth": {
+    "target": "https://apidashboardv2.e-city.co",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  }
+}

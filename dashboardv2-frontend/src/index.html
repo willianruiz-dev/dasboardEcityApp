@@ -11,7 +11,10 @@
 </head>
   <!-- Config runtime PRODUCCIÓN: puedes cambiar apiBaseAddress sin recompilar.
        Estas credenciales son las que me diste (apidashboardv2.e-city.co).
-       Si cambias de servidor solo edita este bloque y recarga. -->
+       MODO 1 (directo, para deploy en servidor distinto): deja baseUrl con https://...
+       MODO 2 (proxy, para npm start local sin CORS): cambia baseUrl a '' y usa npm run start:api:prod
+       Si ves "No hay conexión" desde el preview de Arena, es normal: Arena no tiene VPN.
+       Prueba desde tu PC en Medellín con VPN activa. -->
   <script>
     window.__DASHBOARD_CONFIG__ = {
       dataProvider: 'http',
@@ -21,6 +24,8 @@
         dashboardKeyId: '1E4F66B8-8602-4F9F-9AAC-F1D329A4AB1D'
       }
     };
+    // Para modo PROXY local, comenta el bloque de arriba y descomenta este:
+    // window.__DASHBOARD_CONFIG__ = { dataProvider: 'http', api: { baseUrl: '', pathPrefix: 'api', dashboardKeyId: '1E4F66B8-8602-4F9F-9AAC-F1D329A4AB1D' } };
   </script>
 <body class="h-full bg-surface-light text-slate-800 antialiased dark:bg-surface-dark dark:text-slate-200">
   <app-root></app-root>
