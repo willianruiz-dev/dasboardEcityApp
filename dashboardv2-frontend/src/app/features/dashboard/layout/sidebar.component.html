@@ -1,0 +1,70 @@
+<aside
+  class="flex h-full flex-col border-r border-surface-border bg-white transition-[width] duration-200 dark:border-surface-border-dark dark:bg-slate-900/70"
+  [class]="collapsed() ? 'lg:w-[72px]' : 'lg:w-64'"
+>
+  <div class="flex h-14 items-center gap-2.5 px-4">
+    <a [routerLink]="rootPath" class="flex min-w-0 items-center gap-2.5" (click)="closeMobile.emit()">
+      <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-600 text-white shadow-sm">
+        <ui-icon name="cash" [size]="17" />
+      </span>
+      <span class="min-w-0" [class.sr-only]="collapsed()">
+        <span class="block truncate text-sm font-semibold tracking-tight text-slate-900 dark:text-white">eCity · Consultas</span>
+        <span class="block truncate text-[10px] font-medium uppercase tracking-wider text-slate-400">Dashboard V2 · solo lectura</span>
+      </span>
+    </a>
+
+    <button
+      type="button"
+      class="btn-ghost ml-auto px-1.5 py-1.5 lg:hidden"
+      (click)="closeMobile.emit()"
+      aria-label="Cerrar menú"
+    >
+      <ui-icon name="close" [size]="18" />
+    </button>
+  </div>
+
+  <nav class="no-scrollbar flex-1 space-y-0.5 overflow-y-auto px-2.5 pb-3" [attr.aria-label]="'Secciones disponibles'">
+    @for (entry of navigation.menu(); track entry.id) {
+      <a
+        [routerLink]="entry.path"
+        routerLinkActive="bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300"
+        class="group flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-slate-100"
+        [title]="collapsed() ? entry.title : ''"
+        (click)="closeMobile.emit()"
+      >
+        <ui-icon [name]="entry.icon" [size]="17" class="shrink-0 text-slate-400 transition group-hover:text-brand-600 dark:group-hover:text-brand-300" />
+        <span class="truncate" [class.sr-only]="collapsed()">{{ entry.title }}</span>
+        @if (entry.children.length > 0) {
+          <span class="ml-auto text-[10px] text-slate-300 dark:text-slate-600">{{ entry.children.length }}</span>
+        }
+      </a>
+    } @empty {
+      <p class="px-2.5 py-6 text-xs text-slate-400" [class.sr-only]="collapsed()">
+        Tu rol no tiene rutas asignadas. Pide a administración que asigne `ReadTransactions` y rutas en el dashboard de seguridad.
+      </p>
+    }
+  </nav>
+
+  <div class="border-t border-surface-border px-3 py-3 dark:border-surface-border-dark">
+    <button
+      type="button"
+      class="mb-2 hidden w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 lg:flex"
+      (click)="toggleCollapsed.emit()"
+      [attr.aria-pressed]="collapsed()"
+    >
+      <ui-icon name="chevron" [size]="13" [class]="collapsed() ? '' : 'rotate-180'" />
+      @if (!collapsed()) {
+        <span>Compactar</span>
+      }
+    </button>
+    <div
+      class="flex items-start gap-2 rounded-lg bg-slate-50 p-2.5 text-[11px] leading-snug text-slate-500 dark:bg-slate-800/60 dark:text-slate-400"
+      [class.sr-only]="collapsed()"
+    >
+      <ui-icon [name]="config.readOnly ? 'lock' : 'alert'" [size]="14" [class]="config.readOnly ? 'text-accent-600 dark:text-accent-400' : 'text-amber-500'" />
+      <span>
+        {{ config.readOnly ? 'Escrituras bloqueadas en el cliente. Las consultas usan GET y dos POST de lectura.' : 'Modo escritura habilitado (no recomendado).' }}
+      </span>
+    </div>
+  </div>
+</aside>

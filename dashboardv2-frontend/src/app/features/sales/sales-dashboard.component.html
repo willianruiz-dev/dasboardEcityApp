@@ -1,0 +1,131 @@
+<div class="space-y-5">
+  <app-page-header title="Transacciones por máquina" subtitle="Consulta de solo lectura sobre el API del dashboard: un Pay+ (máquina) + rango de fechas, con su detalle de billetes y exportación oficial." [fetchedAt]="query.fetchedAt()">
+    <div headerActions class="flex flex-wrap items-center gap-2">
+      <label class="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+        <input type="checkbox" class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" [checked]="query.comparePrevious()" (change)="toggleCompare($event)" />
+        Comparar con periodo anterior
+      </label>
+      <button type="button" class="btn-ghost border border-surface-border dark:border-surface-border-dark" (click)="query.search()" [disabled]="query.loading()">
+        <ui-icon name="refresh" [size]="14" [class]="query.loading() ? 'animate-spin' : ''" />
+        Refrescar
+      </button>
+      <button type="button" class="btn-primary" (click)="export()" [disabled]="query.exporting()">
+        <ui-icon name="download" [size]="14" />
+        {{ query.exporting() ? 'Generando…' : exportIds().length > 0 ? 'Exportar ' + exportIds().length : 'Exportar Excel' }}
+      </button>
+    </div>
+  </app-page-header>
+
+  <section class="card p-3 sm:p-4" aria-label="Filtros de consulta">
+    <div class="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto] lg:items-end">
+      <ui-select
+        label="Máquina (Pay+)"
+        [options]="machineOptions()"
+        [value]="machineValue()"
+        (valueChange)="onMachine($event)"
+        hint="Con `Todas` se usa GET /api/Transaction y el rango se filtra en el navegador; con una máquina se usa POST /api/Transaction/GetByDate."
+      />
+      <div class="flex flex-wrap items-center gap-2">
+        <ui-select label="Estado" [options]="stateOptions()" [value]="query.stateFilter()" (valueChange)="onState($event)" class="w-[168px]" />
+        <ui-select label="Medio de pago" [options]="paymentOptions()" [value]="query.typeFilter()" (valueChange)="onPayment($event)" class="w-[176px]" />
+      </div>
+    </div>
+
+    <div class="mt-3 border-t border-surface-border pt-3 dark:border-surface-border-dark">
+      <ui-range-picker [preset]="query.preset()" [externalRange]="query.range()" (selectionChange)="onRange($event)" />
+    </div>
+  </section>
+
+  @if (query.error()) {
+    <ui-error-state
+      title="No se pudo consultar la API del dashboard"
+      [message]="query.error()!"
+      hint="Revisa que el `DashboardKeyId` y el `baseUrl` del entorno sean correctos, y que tu sesión siga vigente."
+      (retry)="query.search()"
+    />
+  }
+
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+    @for (card of query.kpis(); track card.label) {
+      <ui-stats-card
+        [label]="card.label"
+        [value]="card.value"
+        [hint]="card.hint ?? null"
+        [delta]="card.delta"
+        [format]="card.format ?? 'number'"
+        [icon]="card.icon ?? null"
+        [series]="card.series"
+        [loading]="query.loading()"
+      />
+    }
+  </div>
+
+  @if (!query.loading() && query.isEmpty()) {
+    <ui-empty-state
+      title="Sin transacciones en el rango consultado"
+      icon="receipt"
+      hint="La API respondió 404 “No se encontró resultado”. Amplía el rango de fechas o cambia de máquina: los Pay+ inactivos no generan movimientos."
+    />
+  }
+
+  @defer (on viewport; prefetch on idle) {
+    <app-transaction-charts />
+  } @placeholder {
+    <div class="grid gap-3 xl:grid-cols-3">
+      @for (panel of [0, 1, 2, 3]; track panel) {
+        <div class="card p-4"><div class="skeleton h-[252px] w-full"></div></div>
+      }
+    </div>
+  }
+
+  @defer (on viewport) {
+    <section class="space-y-2">
+      <div class="flex items-end justify-between gap-2 px-1">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Detalle de la consulta</h2>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            {{ query.rows().length }} fila(s)
+            @if (query.stateFilter() || query.typeFilter()) {
+              · filtros aplicados en memoria sobre la respuesta
+            }
+          </p>
+        </div>
+        <p class="hidden items-center gap-1 text-[11px] text-slate-400 sm:flex">
+          <ui-icon name="lock" [size]="12" />
+          Vista de solo lectura
+        </p>
+      </div>
+
+      <app-data-table
+        [rows]="query.rows()"
+        [columns]="columns()"
+        [loading]="query.loading()"
+        [selectable]="true"
+        [clickable]="true"
+        [searchKeys]="searchKeys"
+        [pageSize]="25"
+        emptyTitle="Sin transacciones"
+        emptyHint="La consulta terminó sin filas para esta máquina y rango."
+        (selectionChange)="onSelection($event)"
+        (rowClick)="open.set($event)"
+      />
+    </section>
+  } @placeholder {
+    <div class="card p-4">
+      <div class="skeleton h-8 w-40"></div>
+      <div class="skeleton mt-3 h-[320px] w-full"></div>
+    </div>
+  }
+
+  @if (open(); as row) {
+    <app-transaction-detail [transaction]="$any(row)" (close)="open.set(null)" />
+  }
+
+  <footer class="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-surface-border px-4 py-3 text-[11px] text-slate-500 dark:border-surface-border-dark dark:text-slate-400">
+    <ui-icon name="shield" [size]="14" class="text-accent-600 dark:text-accent-400" />
+    <span>
+      Consultas permitidas a tu rol: <strong class="font-semibold">{{ query.stateOptions().length > 0 ? 'lectura de transacciones' : 'sin lecturas disponibles' }}</strong>.
+      Ninguna mutación puede salir de esta aplicación: PUT/PATCH/DELETE se bloquean en el interceptor de solo lectura.
+    </span>
+  </footer>
+</div>

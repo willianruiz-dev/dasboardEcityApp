@@ -1,0 +1,105 @@
+<div class="space-y-5">
+  <app-page-header title="Analítica" subtitle="Cortes por hora, producto, medio de pago y concentración de máquinas sobre la misma consulta de lectura." [fetchedAt]="analytics.fetchedAt()">
+    <div headerActions>
+      <button type="button" class="btn-ghost border border-surface-border dark:border-surface-border-dark" (click)="analytics.exportAggregates()" [disabled]="analytics.loading() || analytics.isEmpty()">
+        <ui-icon name="download" [size]="14" />
+        Exportar agregados (CSV)
+      </button>
+    </div>
+  </app-page-header>
+
+  <section class="card p-3 sm:p-4">
+    <ui-range-picker [externalRange]="analytics.range()" (selectionChange)="onRange($event)" />
+  </section>
+
+  @if (analytics.error(); as message) {
+    <ui-error-state [message]="message" (retry)="analytics.applyRange(analytics.range())" />
+  }
+
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    @for (card of kpis(); track card.label) {
+      <ui-stats-card [label]="card.label" [value]="card.value" [format]="card.format ?? 'number'" [icon]="card.icon ?? null" [hint]="card.hint ?? null" [loading]="analytics.loading()" />
+    }
+  </div>
+
+  @if (!analytics.loading() && analytics.isEmpty()) {
+    <ui-empty-state title="Nada que analizar en este rango" hint="Prueba con 30 o 90 días, o quita el filtro de máquina." />
+  }
+
+  @defer (on viewport; prefetch on idle) {
+    <ui-panel title="Mapa de demanda · hora × día" subtitle="Intensidad = cantidad de transacciones por franja de 60 min (UTC)" icon="clock" [loading]="analytics.loading()">
+      <div class="overflow-x-auto pb-1">
+        <div class="min-w-[620px]">
+          <div class="mb-1 flex gap-[3px] pl-9">
+            @for (hour of [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]; track hour) {
+              <span class="tabular flex-1 text-center text-[9px] text-slate-400">{{ hour }}</span>
+            }
+          </div>
+          @for (row of heatRows(); track row.label) {
+            <div class="flex items-center gap-[3px]">
+              <span class="w-9 shrink-0 text-[10px] font-semibold text-slate-500 dark:text-slate-400">{{ row.label }}</span>
+              @for (cell of row.cells; track $index) {
+                <span
+                  class="group relative h-6 flex-1 rounded-[3px] transition hover:ring-2 hover:ring-brand-400"
+                  [class]="heatClass(cell.intensity)"
+                  [title]="row.label + ' ' + cell.hour + ':00 — ' + cell.count + ' op. · ' + cell.amount"
+                ></span>
+              }
+            </div>
+          }
+          <div class="mt-3 flex items-center gap-2 text-[10px] text-slate-400">
+            <span>menos</span>
+            @for (level of [0, 0.2, 0.45, 0.7, 1]; track level) {
+              <span class="h-3 w-6 rounded-[3px]" [class]="heatClass(level)"></span>
+            }
+            <span>más</span>
+          </div>
+        </div>
+      </div>
+    </ui-panel>
+
+    <div class="grid gap-3 xl:grid-cols-3">
+      <ui-panel class="xl:col-span-2" title="Volumen diario" subtitle="Transacciones por día en el rango" icon="chart" [loading]="analytics.loading()">
+        <ui-chart kind="bar" [labels]="trendLabels()" [series]="trendSeries()" [height]="220" [legend]="false" />
+      </ui-panel>
+
+      <ui-panel title="Mix por medio de pago" icon="cash" [loading]="analytics.loading()">
+        <ui-chart kind="doughnut" [labels]="paymentLabels()" [series]="paymentSeries()" [height]="220" [moneyAxis]="true" />
+      </ui-panel>
+    </div>
+
+    <div class="grid gap-3 xl:grid-cols-2">
+      <ui-panel title="Productos" subtitle="Top 8 por monto" icon="receipt" [loading]="analytics.loading()">
+        <ui-chart kind="bar" [labels]="productLabels()" [series]="productSeries()" [height]="220" [moneyAxis]="true" [legend]="false" />
+      </ui-panel>
+
+      <ui-panel title="Concentración por máquina" subtitle="Ley de Pareto del monto facturado" icon="machine" [loading]="analytics.loading()">
+        <ul class="space-y-2.5">
+          @for (row of analytics.concentration(); track row.id) {
+            <li>
+              <div class="flex items-baseline justify-between gap-2 text-xs">
+                <span class="truncate font-medium text-slate-700 dark:text-slate-200">
+                  <span class="tabular mr-1 text-slate-400">#{{ row.rank }}</span>{{ row.label }}
+                </span>
+                <span class="tabular shrink-0 text-slate-500 dark:text-slate-400">{{ row.share }}% · {{ money(row.billed) }}</span>
+              </div>
+              <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div class="h-full rounded-full bg-brand-500 transition-[width] duration-500" [style.width.%]="row.share"></div>
+              </div>
+              @if ($index < 4) {
+                <p class="tabular mt-0.5 text-[10px] text-slate-400">acumulado {{ row.cumulative }}% · {{ row.transactions }} op. · {{ row.successRate }}% efectividad</p>
+              }
+            </li>
+          } @empty {
+            <li class="py-6 text-center text-xs text-slate-400">Sin máquinas en el rango.</li>
+          }
+        </ul>
+      </ui-panel>
+    </div>
+  } @placeholder {
+    <div class="grid gap-3 xl:grid-cols-3">
+      <div class="card p-4 xl:col-span-2"><div class="skeleton h-56 w-full"></div></div>
+      <div class="card p-4"><div class="skeleton h-56 w-full"></div></div>
+    </div>
+  }
+</div>
