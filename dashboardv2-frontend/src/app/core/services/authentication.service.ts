@@ -35,16 +35,42 @@ export class AuthenticationService {
 
   async login(userName: string, password: string): Promise<LoginOutcome> {
     const isMock = this.config.dataProvider() === 'mock';
-    let request: LoginRequest;
-
-    try {
-      request = { userName: userName.trim(), password: isMock ? password : await this.crypto.encryptPassword(password) };
-    } catch (error) {
-      return { ok: false, message: error instanceof Error ? error.message : 'No fue posible cifrar la contraseña.' };
+    // En mock no se cifra; en prod se intenta CIFRADO RSA-OAEP-SHA1 (lo que espera Encryption.DecryptRSA).
+    // Si el servidor no tiene la clave privada correcta o espera texto plano (como tu app C# que envía pwd sin cifrar),
+    // hacemos fallback a texto plano automáticamente.
+    let encrypted: string | null = null;
+    if (!isMock) {
+      try {
+        encrypted = await this.crypto.encryptPassword(password);
+      } catch (error) {
+        return { ok: false, message: error instanceof Error ? error.message : 'No fue posible cifrar la contraseña.' };
+      }
     }
 
-    try {
+    const tryLogin = async (pwdToSend: string, label: string) => {
+      const request: LoginRequest = { userName: userName.trim(), password: pwdToSend };
+      console.info(`[auth] intentando login ${label} -> POST ${this.config.baseUrl}/${this.config.pathPrefix}/Auth/Login`);
       const token = await firstValueFrom(this.security.login(request));
+      if (!token) throw new Error('El API no devolvió token. Revisa las credenciales.');
+      return token;
+    };
+
+    try {
+      // Intento 1: cifrado (flujo normal del dashboard)
+      const token = isMock
+        ? await tryLogin(password, 'mock/plain')
+        : await tryLogin(encrypted!, 'RSA-OAEP-SHA1').catch(async (err: unknown) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            const status = (err as { status?: number })?.status;
+            // Fallback a texto plano si el backend rechazó el cifrado (tu app C# envía plain sin cifrar)
+            // No hacemos fallback para errores de red (status 0)
+            if (status === 0) throw err;
+            if (status === 400 || msg.includes('incorrecto') || msg.includes('desencript') || msg.includes('token')) {
+              console.warn('[auth] login cifrado falló, reintentando en texto plano (compatibilidad con tu app C#)', msg);
+              return tryLogin(password, 'plain-fallback');
+            }
+            throw err;
+          });
       if (!token) return { ok: false, message: 'El API no devolvió token. Revisa las credenciales.' };
 
       const user = await firstValueFrom(this.security.loggedUser()).catch(() => null);
