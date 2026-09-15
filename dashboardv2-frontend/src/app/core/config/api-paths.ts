@@ -94,6 +94,8 @@ export const READ_ONLY_QUERY_POST: readonly string[] = [
 export function buildUrl(path: string, baseUrl: string = environment.api.baseUrl, prefix: string = environment.api.pathPrefix): string {
   const origin = baseUrl.replace(/\/+$/, '');
   const cleanPrefix = prefix.replace(/^\/+|\/+$/g, '');
-  const url = `${origin}/${cleanPrefix}/${path.replace(/^\/+/, '')}`;
+  const cleanPath = path.replace(/^\/+/, '');
+  // Si prefix es '' (caso Auth/Login sin api), no dupliques la barra: https://host/Auth/Login no https://host//Auth/Login
+  const url = cleanPrefix ? `${origin}/${cleanPrefix}/${cleanPath}` : `${origin}/${cleanPath}`;
   return url.startsWith('//') ? url.slice(1) : url;
 }

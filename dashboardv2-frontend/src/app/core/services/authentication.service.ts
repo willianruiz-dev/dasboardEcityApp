@@ -35,18 +35,16 @@ export class AuthenticationService {
 
   async login(userName: string, password: string): Promise<LoginOutcome> {
     const isMock = this.config.dataProvider() === 'mock';
-    // En mock no se cifra; en prod se intenta CIFRADO RSA-OAEP-SHA1 (lo que espera Encryption.DecryptRSA).
-    // Si el navegador está en http:// (no seguro) crypto.subtle no existe -> fallback a plain.
-    // Si el servidor espera plain (tu app C#), también hacemos fallback automático.
+    // En mock no se cifra; en prod se exige CIFRADO RSA-OAEP-SHA1 (lo que espera Encryption.DecryptRSA en apidashboardv2.e-city.co).
+    // Si el navegador está en http:// (no seguro) crypto.subtle no existe -> NO hay fallback a plain porque tu servidor SÍ exige cifrado (probado: Auth/Login con cifrado da 200, con plain no).
     let encrypted: string | null = null;
-    let cryptoError: string | null = null;
     if (!isMock) {
       try {
         encrypted = await this.crypto.encryptPassword(password);
       } catch (error) {
-        cryptoError = error instanceof Error ? error.message : String(error);
-        console.warn('[auth] Web Crypto no disponible (http no seguro), se usará texto plano como fallback', cryptoError);
-        encrypted = null;
+        const msg = error instanceof Error ? error.message : String(error);
+        console.error('[auth] Web Crypto fallo', msg);
+        return { ok: false, message: msg };
       }
     }
 
@@ -59,17 +57,15 @@ export class AuthenticationService {
     };
 
     try {
-      // Si no hay Web Crypto (http no seguro) vamos directo a plain; si no, intentamos cifrado con fallback a plain
       const token = isMock
         ? await tryLogin(password, 'mock/plain')
-        : encrypted == null
-          ? await tryLogin(password, `plain-fallback (${cryptoError})`)
-          : await tryLogin(encrypted, 'RSA-OAEP-SHA1').catch(async (err: unknown) => {
+        : await tryLogin(encrypted!, 'RSA-OAEP-SHA1').catch(async (err: unknown) => {
               const msg = err instanceof Error ? err.message : String(err);
               const status = (err as { status?: number })?.status;
               if (status === 0) throw err;
+              // Si el servidor rechazó el cifrado (no debería pasar en apidashboardv2, que sí exige cifrado), prueba plain como último recurso
               if (status === 400 || msg.includes('incorrecto') || msg.includes('desencript') || msg.includes('token')) {
-                console.warn('[auth] login cifrado falló, reintentando en texto plano (compatibilidad con tu app C# / http no seguro)', msg);
+                console.warn('[auth] login cifrado falló, reintentando en texto plano', msg);
                 return tryLogin(password, 'plain-fallback');
               }
               throw err;
