@@ -72,7 +72,16 @@ export class AuthenticationService {
             });
       if (!token) return { ok: false, message: 'El API no devolvió token. Revisa las credenciales.' };
 
-      const user = await firstValueFrom(this.security.loggedUser()).catch(() => null);
+      // Guarda el token ANTES de pedir User/Logged etc. para que el authInterceptor
+      // ya envíe `Authorization: Bearer <token>` en esas peticiones. Si no, dan 401
+      // (como viste en GET /api/Route/Logged -> 401 Unauthorized).
+      // Usamos un usuario temporal; luego se reemplaza por el real.
+      this.auth.open(token, { id: 0, userName: userName.trim(), name: userName.trim(), idRole: 0 } as unknown as import('../models/security.model').User, null, []);
+
+      const user = await firstValueFrom(this.security.loggedUser()).catch((e) => {
+        console.error('[auth] User/Logged falló', e);
+        return null;
+      });
       const role = user ? await firstValueFrom(this.security.roleById(user.idRole)).catch(() => null) : null;
       const routes = await firstValueFrom(this.security.loggedRoutes()).catch(() => [] as RouteNode[]);
 
