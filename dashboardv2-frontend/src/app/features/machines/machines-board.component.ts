@@ -31,6 +31,28 @@ export class MachinesBoardComponent {
   protected readonly catalog = inject(MachineCatalogService);
   protected readonly money = formatMoney;
 
+  /** Mapea valor de denominación (COP) a imagen hiperrealista del billete/moneda. */
+  protected denominationImage(value: number): string {
+    const map: Record<number, string> = {
+      100000: 'assets/images/denominations/bill_100000.png',
+      50000: 'assets/images/denominations/bill_50000.png',
+      20000: 'assets/images/denominations/bill_20000.png',
+      10000: 'assets/images/denominations/bill_10000.png',
+      5000: 'assets/images/denominations/bill_5000.png',
+      2000: 'assets/images/denominations/bill_2000.png',
+      1000: 'assets/images/denominations/coin_1000.png',
+      500: 'assets/images/denominations/coin_500.png',
+      200: 'assets/images/denominations/coin_200.png',
+      100: 'assets/images/denominations/coin_100.png',
+      50: 'assets/images/denominations/coin_100.png'
+    };
+    return map[value] ?? (value >= 2000 ? 'assets/images/denominations/bill_50000.png' : 'assets/images/denominations/coin_500.png');
+  }
+
+  protected denominationType(value: number): 'Billete' | 'Moneda' {
+    return value >= 2000 ? 'Billete' : 'Moneda';
+  }
+
 
   protected readonly storageColumns = computed<readonly TableColumn<MachineStorageLine>[]>(() => [
     { key: 'denominationValue', label: 'Denominación', type: 'money', sortable: true },
