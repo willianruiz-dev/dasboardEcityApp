@@ -53,12 +53,12 @@ async function main() {
 
   const endpoints = [
     '/api/User/Logged',
-    '/User/Logged',
     '/api/Role/1',
-    '/api/Route/GetLoggedRoutes',
-    '/Route/GetLoggedRoutes',
+    '/api/Route/Logged',
+    '/api/Route', // todas las rutas
     '/api/Permission',
     '/api/Transaction',
+    '/api/PayPad',
   ];
   for (const ep of endpoints) {
     const res = await call(ep, token);
