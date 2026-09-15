@@ -103,13 +103,14 @@ export function buildMenu(routes: RouteNode[], knownPaths: readonly string[]): M
 
 /** Menú mínimo garantizado: si `Route/GetLoggedRoutes` falla o no tiene rutas, la UI no queda vacía. */
 export function fallbackMenu(knownPaths: readonly string[]): MenuEntry[] {
+  // Debe coincidir con KNOWN_PATHS de NavigationService: /dashboard, /dashboard/sales, etc.
   const all: MenuEntry[] = [
-    { id: -1, title: 'Consulta por máquina', path: '/sales', icon: 'receipt', children: [], implemented: true },
-    { id: -2, title: 'Panorama operativo', path: '/overview', icon: 'dashboard', children: [], implemented: true },
-    { id: -3, title: 'Analítica', path: '/analytics', icon: 'chart', children: [], implemented: true },
-    { id: -4, title: 'Máquinas', path: '/machines', icon: 'machine', children: [], implemented: true },
-    { id: -5, title: 'Operadores', path: '/users', icon: 'users', children: [], implemented: true },
-    { id: -6, title: 'Roles y permisos', path: '/security', icon: 'shield', children: [], implemented: true }
+    { id: -1, title: 'Panorama operativo', path: '/dashboard', icon: 'dashboard', children: [], implemented: true },
+    { id: -2, title: 'Consulta por máquina', path: '/dashboard/sales', icon: 'receipt', children: [], implemented: true },
+    { id: -3, title: 'Analítica', path: '/dashboard/analytics', icon: 'chart', children: [], implemented: true },
+    { id: -4, title: 'Máquinas', path: '/dashboard/machines', icon: 'machine', children: [], implemented: true },
+    { id: -5, title: 'Operadores', path: '/dashboard/users', icon: 'users', children: [], implemented: true },
+    { id: -6, title: 'Roles y permisos', path: '/dashboard/security', icon: 'shield', children: [], implemented: true }
   ];
   return all.filter((e) => knownPaths.includes(e.path));
 }
