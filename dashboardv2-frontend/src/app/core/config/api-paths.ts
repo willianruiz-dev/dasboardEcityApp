@@ -35,7 +35,7 @@ export const ApiPath = {
   },
   route: {
     all: 'Route',
-    logged: 'Route/GetLoggedRoutes'
+    logged: 'Route/Logged'
   },
   payPad: {
     all: 'PayPad',
