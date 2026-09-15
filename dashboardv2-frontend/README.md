@@ -8,10 +8,16 @@ agregar— ninguna pantalla que escriba en producción.
 npm install
 npm start              # ng serve (0.0.0.0:4200) · modo demo, sin backend
 npm run start:api      # ídem, proxyeando /api y /Auth a http://localhost:5013
-npm run smoke          # 9 aserciones de la lógica crítica (fecha, agregación, grilla)
+npm run smoke          # 13 comprobaciones del contrato (fecha, solo-lectura, RSA, grilla)
 npm run build:prod     # build real contra la API (environment.production.ts)
 npm run preview        # build "demo" + server estático (lo que ves en el preview)
 ```
+
+`npm run smoke` no levanta Angular: ejecuta la lógica pura en Node y verifica lo que no se ve
+a simple vista — que `toApiDate` produce el formato de `DateTime.ParseExact`, que ningún
+`PUT/PATCH/DELETE` ni `POST Transaction/Paypad` sobrevive la política de solo lectura, y que
+cifrando con `public.pem` se puede descifrar con `private.pem` usando OAEP-SHA-1 (exactamente
+lo que hace `Encryption.DecryptRSA`). Si rotan el par de claves, el chequeo de deriva avisa.
 
 Cuentas del modo demo (mismo password `demo1234`, cada una con un rol distinto para ver
 cómo cambian menú y accesos): `lruiz` (Administrador), `cperez` (Supervisor de red),

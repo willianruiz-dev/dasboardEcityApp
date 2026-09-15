@@ -212,8 +212,9 @@ function readPem(path) {
   const stripped = buffer[0] === 0xff && buffer[1] === 0xfe ? buffer.subarray(2) : buffer;
   const candidates = [buffer.toString('utf8'), stripped.toString('utf16le')];
   for (const text of candidates) {
-    const clean = text.replace(/\r/g, '').replace(/\0/g, '').trim();
-    if (clean.includes('BEGIN ') && clean.includes('END ')) return clean + '\n';
+    // Se descarta cualquier basura antes de '-----BEGIN' (BOM mal decodificado, ceros de UTF-16).
+    const clean = text.replace(/\r/g, '').replace(/\0/g, '').replace(/^[^-]*?(-----BEGIN)/, '$1').trim();
+    if (clean.startsWith('-----BEGIN') && clean.includes('END ')) return clean + '\n';
   }
   throw new Error(`PEM ilegible o inesperado: ${path}`);
 }
