@@ -1,0 +1,112 @@
+  <div class="fixed inset-0 z-40 flex justify-end" role="dialog" aria-modal="true" aria-label="Detalle de la transacción">
+    <button type="button" class="absolute inset-0 bg-slate-900/40 backdrop-blur-[1px]" (click)="close.emit()" aria-label="Cerrar detalle"></button>
+
+    <aside class="relative flex h-full w-full max-w-xl animate-fade-up flex-col bg-white shadow-lift dark:bg-slate-900">
+      <header class="flex items-start justify-between gap-3 border-b border-surface-border px-5 py-4 dark:border-surface-border-dark">
+        <div class="min-w-0">
+          <p class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <ui-icon name="receipt" [size]="14" />
+            Transacción
+          </p>
+          <h2 class="tabular mt-0.5 truncate text-lg font-semibold text-slate-900 dark:text-white">#{{ transaction().id }}</h2>
+          <p class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">
+            {{ transaction().payPad }} · {{ transaction().dateCreated | uiDate: 'full' }}
+          </p>
+        </div>
+        <button type="button" class="btn-ghost px-2 py-1.5" (click)="close.emit()" aria-label="Cerrar">
+          <ui-icon name="close" [size]="16" />
+        </button>
+      </header>
+
+      <div class="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+        <section class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          @for (item of headline(); track item.label) {
+            <div class="rounded-lg border border-surface-border bg-slate-50/60 p-2.5 dark:border-surface-border-dark dark:bg-slate-800/40">
+              <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ item.label }}</p>
+              <p class="tabular mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ item.value }}</p>
+            </div>
+          }
+        </section>
+
+        <section>
+          <h3 class="label">Billetes y monedas <span class="text-slate-400">(`Transaction/{{ transaction().id }}/Details`)</span></h3>
+          @if (details.loading()) {
+            <div class="space-y-2">
+              @for (row of [0, 1, 2, 3]; track $index) {
+                <ui-skeleton [height]="34" />
+              }
+            </div>
+          } @else if (details.error()) {
+            <ui-error-state [message]="details.error()!" (retry)="details.reload()" />
+          } @else if (details.isEmpty()) {
+            <ui-empty-state title="Este movimiento no tiene detalle" hint="El SP `SP_GetTransactionDetailsById` no devolvió líneas para esta transacción." />
+          } @else {
+            <div class="overflow-hidden rounded-lg border border-surface-border dark:border-surface-border-dark">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-semibold">Denominación</th>
+                    <th class="px-3 py-2 text-left font-semibold">Operación</th>
+                    <th class="px-3 py-2 text-right font-semibold">Cant.</th>
+                    <th class="px-3 py-2 text-right font-semibold">Total</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-surface-border dark:divide-surface-border-dark">
+                  @for (line of details.data(); track line.id) {
+                    <tr>
+                      <td class="tabular px-3 py-2 font-medium text-slate-700 dark:text-slate-200">{{ line.currencyDenomination | money }}</td>
+                      <td class="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">{{ line.typeOperation }}</td>
+                      <td class="tabular px-3 py-2 text-right text-slate-600 dark:text-slate-300">{{ line.quantity }}</td>
+                      <td class="tabular px-3 py-2 text-right font-semibold text-slate-800 dark:text-slate-100">{{ line.currencyDenomination * line.quantity | money }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <p class="tabular mt-1.5 text-right text-xs text-slate-500 dark:text-slate-400">
+              Cuadre: {{ detailTotal() | money }} vs. operación {{ formatMoney(transaction().totalAmount) }}
+            </p>
+          }
+        </section>
+
+        <section class="grid gap-3 sm:grid-cols-2">
+          <div class="rounded-lg border border-surface-border p-3 dark:border-surface-border-dark">
+            <p class="label mb-1">Calificación del usuario</p>
+            @if (rating.data()) {
+              <div class="flex items-center gap-1.5">
+                @for (star of stars(); track $index) {
+                  <ui-icon name="check" [size]="15" [class]="star <= rating.data()!.rating ? 'text-accent-500' : 'text-slate-300 dark:text-slate-700'" />
+                }
+                <span class="tabular ml-1 text-xs text-slate-500">{{ rating.data()!.rating }}/5</span>
+              </div>
+            } @else {
+              <p class="text-xs text-slate-400">Sin calificación registrada.</p>
+            }
+          </div>
+
+          <div class="rounded-lg border border-surface-border p-3 dark:border-surface-border-dark">
+            <p class="label mb-1">Evidencia en video</p>
+            @if (videoUrl()) {
+              <video controls class="w-full rounded-md bg-black" [src]="$any(videoUrl())"></video>
+            } @else {
+              <button type="button" class="btn-ghost w-full border border-dashed border-slate-300 py-3 text-xs dark:border-slate-700" (click)="loadVideo()" [disabled]="videoLoading()">
+                <ui-icon name="video" [size]="14" />
+                {{ videoLoading() ? 'Descargando…' : videoError() ?? 'Cargar del FTP/archivo' }}
+              </button>
+            }
+          </div>
+        </section>
+
+        <section class="rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50">
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-2">
+            @for (field of metadata(); track field.key) {
+              <div class="min-w-0">
+                <dt class="text-[10px] uppercase tracking-wide text-slate-400">{{ field.key }}</dt>
+                <dd class="truncate font-medium text-slate-700 dark:text-slate-200" [title]="field.value">{{ field.value }}</dd>
+              </div>
+            }
+          </dl>
+        </section>
+      </div>
+    </aside>
+  </div>

@@ -1,0 +1,121 @@
+<div class="space-y-5">
+  <app-page-header
+    title="Panorama operativo"
+    subtitle="Red de Pay+ en los últimos 30 días. Dos consultas de lectura y el resto se calcula en memoria."
+    [fetchedAt]="overview.fetchedAt()"
+  >
+    <div headerActions class="flex items-center gap-2">
+      <button type="button" class="btn-ghost border border-surface-border dark:border-surface-border-dark" (click)="overview.reload()" [disabled]="overview.loading()">
+        <ui-icon name="refresh" [size]="14" [class]="overview.loading() ? 'animate-spin' : ''" />
+        Actualizar
+      </button>
+      <a routerLink="/dashboard/sales" class="btn-primary">
+        <ui-icon name="search" [size]="14" />
+        Consulta por máquina
+      </a>
+    </div>
+  </app-page-header>
+
+  @if (overview.error(); as message) {
+    <ui-error-state [message]="message" title="No se pudo leer el API" hint="Verifica el token y el `DashboardKeyId` del entorno." (retry)="overview.reload()" />
+  }
+
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+    @for (card of overview.kpis(); track card.label) {
+      <ui-stats-card
+        [label]="card.label"
+        [value]="card.value"
+        [hint]="card.hint ?? null"
+        [delta]="card.delta"
+        [format]="card.format ?? 'number'"
+        [icon]="card.icon ?? null"
+        [series]="card.series"
+        [loading]="overview.loading()"
+      />
+    }
+  </div>
+
+  @if (!overview.loading() && overview.isEmpty()) {
+    <ui-empty-state title="La API no devolvió transacciones" hint="`GET api/Transaction` respondió 404. Puede que el usuario no tenga alcance sobre ninguna máquina." />
+  }
+
+  @defer (on viewport; prefetch on idle) {
+    <div class="grid gap-3 xl:grid-cols-3">
+      <ui-panel class="xl:col-span-2" title="Tendencia de 30 días" subtitle="Facturado y volumen diario (UTC)" icon="trend" [loading]="overview.loading()">
+        <ui-chart kind="line" [labels]="trendLabels()" [series]="trendSeries()" [height]="248" [moneyAxis]="true" />
+      </ui-panel>
+
+      <ui-panel title="Medios de pago" subtitle="Top 6 por monto" icon="chart" [loading]="overview.loading()">
+        <ui-chart kind="doughnut" [labels]="paymentLabels()" [series]="paymentSeries()" [height]="248" [moneyAxis]="true" />
+      </ui-panel>
+    </div>
+  } @placeholder {
+    <div class="grid gap-3 xl:grid-cols-3">
+      <div class="card p-4 xl:col-span-2"><div class="skeleton h-60 w-full"></div></div>
+      <div class="card p-4"><div class="skeleton h-60 w-full"></div></div>
+    </div>
+  }
+
+  <section class="card overflow-hidden">
+    <header class="flex flex-wrap items-center justify-between gap-2 border-b border-surface-border px-4 py-3 dark:border-surface-border-dark">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Salud de la red</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400">Máquinas ordenadas por días sin mover efectivo.</p>
+      </div>
+      <div class="flex gap-1">
+        @for (option of [
+          { key: 'all', label: 'Todas' },
+          { key: 'silent', label: 'En silencio' },
+          { key: 'inactive', label: 'Inactivas' }
+        ]; track option.key) {
+          <button
+            type="button"
+            class="rounded-lg px-2.5 py-1.5 text-xs font-medium transition"
+            [class]="riskFilter() === option.key ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'"
+            (click)="riskFilter.set($any(option.key))"
+          >
+            {{ option.label }}
+          </button>
+        }
+      </div>
+    </header>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+          <tr>
+            <th class="px-4 py-2.5 text-left font-semibold">Máquina</th>
+            <th class="hidden px-4 py-2.5 text-left font-semibold md:table-cell">Oficina</th>
+            <th class="px-4 py-2.5 text-left font-semibold">Estado</th>
+            <th class="px-4 py-2.5 text-right font-semibold">Op. 7d</th>
+            <th class="hidden px-4 py-2.5 text-right font-semibold sm:table-cell">Monto 7d</th>
+            <th class="px-4 py-2.5 text-right font-semibold">Días quieta</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-border dark:divide-surface-border-dark">
+          @for (row of rows(); track row.machine.id) {
+            <tr class="transition-colors hover:bg-brand-50/50 dark:hover:bg-brand-500/5">
+              <td class="px-4 py-2.5">
+                <a [routerLink]="['/dashboard/sales']" [queryParams]="{ machine: row.machine.id }" class="font-medium text-brand-700 hover:underline dark:text-brand-300">
+                  {{ row.machine.username }}
+                </a>
+                <p class="text-[11px] text-slate-400">{{ row.machine.description }}</p>
+              </td>
+              <td class="hidden px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400 md:table-cell">{{ row.machine.office }}</td>
+              <td class="px-4 py-2.5"><ui-badge [label]="label(row.risk)" [tone]="tone(row.risk)" [dot]="true" /></td>
+              <td class="tabular px-4 py-2.5 text-right">{{ row.transactions7d }}</td>
+              <td class="tabular hidden px-4 py-2.5 text-right text-slate-600 dark:text-slate-300 sm:table-cell">{{ money(row.amount7d) }}</td>
+              <td class="tabular px-4 py-2.5 text-right font-semibold" [class]="row.idleDays >= 7 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500'">
+                {{ row.idleDays >= 999 ? '—' : row.idleDays }}
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="px-4 py-10 text-center text-xs text-slate-400">{{ overview.loading() ? 'Cargando red…' : 'Sin máquinas que coincidan con el filtro.' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

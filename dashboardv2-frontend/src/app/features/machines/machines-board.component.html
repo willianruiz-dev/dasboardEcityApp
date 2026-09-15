@@ -1,0 +1,139 @@
+<div class="space-y-5">
+  <app-page-header title="Máquinas (Pay+)" subtitle="Catálogo, contenido de caja y últimos movimientos. Sólo lectura: el alta y la configuración viven en el dashboard administrativo." [fetchedAt]="board.recent.fetchedAt()">
+    <div headerActions>
+      <button type="button" class="btn-ghost border border-surface-border dark:border-surface-border-dark" (click)="catalogReload()">
+        <ui-icon name="refresh" [size]="14" />
+        Recargar catálogo
+      </button>
+    </div>
+  </app-page-header>
+
+  <div class="grid gap-3 lg:grid-cols-[minmax(260px,320px)_1fr] lg:items-start">
+    <section class="card max-h-[70vh] overflow-y-auto">
+      <header class="sticky top-0 z-10 flex items-center justify-between border-b border-surface-border bg-white/90 px-3 py-2.5 backdrop-blur dark:border-surface-border-dark dark:bg-slate-900/90">
+        <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Equipos</h2>
+        <span class="tabular text-[11px] text-slate-400">{{ board.list().length }}</span>
+      </header>
+
+      <ul class="divide-y divide-surface-border dark:divide-surface-border-dark">
+        @for (row of board.list(); track row.machine.id) {
+          <li>
+            <button
+              type="button"
+              class="flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition"
+              [class]="board.selectedId() === row.machine.id ? 'bg-brand-50 dark:bg-brand-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'"
+              (click)="board.select(row.machine.id)"
+            >
+              <span class="mt-0.5 h-2 w-2 shrink-0 rounded-full" [class]="row.status === 'active' ? 'bg-accent-500' : 'bg-slate-300 dark:bg-slate-600'"></span>
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ row.machine.username }}</span>
+                <span class="block truncate text-[11px] text-slate-500 dark:text-slate-400">{{ row.office }}</span>
+              </span>
+              <span class="tabular shrink-0 text-[10px] text-slate-400">#{{ row.machine.id }}</span>
+            </button>
+          </li>
+        } @empty {
+          <li class="p-4"><ui-skeleton [height]="42" /></li>
+        }
+      </ul>
+    </section>
+
+    @if (!board.selected()) {
+      <ui-panel title="Selecciona una máquina" subtitle="El panel derecho se llena bajo demanda (un GET por sección)." icon="machine" [loading]="false">
+        <ui-empty-state icon="machine" title="Ningún Pay+ seleccionado" hint="Elige un equipo en la lista para ver su contenido de caja, sus arqueos y sus últimos movimientos." />
+      </ui-panel>
+    } @else {
+      <div class="space-y-3">
+        <section class="card p-4">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h2 class="flex items-center gap-2 text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+                {{ board.selected()!.username }}
+                <ui-badge [label]="board.selected()!.status === 1 ? 'activa' : 'inactiva'" [tone]="board.selected()!.status === 1 ? 'positive' : 'neutral'" [dot]="true" />
+              </h2>
+              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                {{ board.selected()!.description }} · {{ board.selected()!.office }} · lat {{ board.selected()!.latitude }}, lon {{ board.selected()!.longitude }}
+              </p>
+            </div>
+            <a [routerLink]="['/dashboard/sales']" [queryParams]="{ machine: board.selected()!.id }" class="btn-primary">
+              <ui-icon name="receipt" [size]="14" />
+              Ver transacciones
+            </a>
+          </div>
+
+          <div class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/50">
+              <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Efectivo en caja</p>
+              <p class="tabular mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ money(board.storageTotal()) }}</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/50">
+              <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Última operación</p>
+              <p class="tabular mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ lastActivity() ? (lastActivity() | uiDate: 'short') : '—' }}</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/50">
+              <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Arqueos registrados</p>
+              <p class="tabular mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ board.tonnages.data().length }}</p>
+            </div>
+            <div class="rounded-lg bg-slate-50 p-2.5 dark:bg-slate-800/50">
+              <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Alertas suscritas</p>
+              <p class="tabular mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ board.subscriptions.data().length }}</p>
+            </div>
+          </div>
+
+          @if (board.capacityRisk()) {
+            <p class="mt-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:ring-amber-500/25">
+              <ui-icon name="alert" [size]="14" class="mt-px shrink-0" />
+              <span>{{ board.capacityRisk()!.length }} denominación(es) por debajo del mínimo dispensable. Un reabastecimiento manual evitará caídas de servicio.</span>
+            </p>
+          }
+        </section>
+
+        @if (board.storage.error(); as message) {
+          <ui-error-state [message]="message" title="No se pudo leer el contenido de la máquina" (retry)="board.storage.reload()" />
+        }
+
+        <ui-panel title="Contenido de caja" subtitle="`GET api/PayPad/GetStorage/{id}`" icon="cash" [loading]="board.storage.loading()">
+          @if (board.storage.isEmpty()) {
+            <ui-empty-state title="Sin inventario reportado" hint="La máquina no ha enviado arqueos o el SP respondió 404." />
+          } @else {
+            <app-data-table [rows]="board.storage.data()" [columns]="storageColumns()" [pageSize]="11" [searchKeys]="[]" emptyTitle="Sin denominaciones" />
+          }
+        </ui-panel>
+
+        <div class="grid gap-3 xl:grid-cols-2">
+          <ui-panel title="Arqueos" subtitle="`GET api/Tonnage/GetByPaypad/{id}`" icon="database" [loading]="board.tonnages.loading()">
+            <ul class="space-y-2">
+              @for (tonnage of board.tonnages.data(); track tonnage.id) {
+                <li class="flex items-center justify-between gap-2 rounded-lg border border-surface-border px-3 py-2 text-xs dark:border-surface-border-dark">
+                  <span class="tabular text-slate-500 dark:text-slate-400">{{ tonnage.dateCreated | uiDate: 'short' }}</span>
+                  <span class="tabular font-semibold text-slate-800 dark:text-slate-100">{{ money(tonnage.total) }}</span>
+                  <span class="tabular hidden text-slate-400 sm:inline">AP {{ money(tonnage.totalAp) }} · DP {{ money(tonnage.totalDp) }} · RJ {{ money(tonnage.totalRj) }}</span>
+                </li>
+              } @empty {
+                <li class="py-6 text-center text-xs text-slate-400">Sin arqueos para esta máquina.</li>
+              }
+            </ul>
+          </ui-panel>
+
+          <ui-panel title="Cargues" subtitle="`GET api/Load/GetByPaypad/{id}`" icon="plus" [loading]="board.loads.loading()">
+            <ul class="space-y-2">
+              @for (load of board.loads.data(); track load.id) {
+                <li class="flex items-center justify-between gap-2 rounded-lg border border-surface-border px-3 py-2 text-xs dark:border-surface-border-dark">
+                  <span class="tabular text-slate-500 dark:text-slate-400">{{ load.dateCreated | uiDate: 'short' }}</span>
+                  <span class="tabular font-semibold text-slate-800 dark:text-slate-100">{{ money(load.totalLoaded) }}</span>
+                  <span class="tabular hidden text-slate-400 sm:inline">{{ load.details.length }} denominación(es)</span>
+                </li>
+              } @empty {
+                <li class="py-6 text-center text-xs text-slate-400">Sin cargues registrados.</li>
+              }
+            </ul>
+          </ui-panel>
+        </div>
+
+        <ui-panel title="Últimos movimientos" subtitle="`GET api/Transaction/{id}` — 12 más recientes" icon="receipt" [loading]="board.recent.loading()">
+          <app-data-table [rows]="recentRows()" [columns]="recentColumns()" [pageSize]="12" [searchKeys]="['reference', 'product', 'id']" emptyTitle="Sin movimientos" />
+        </ui-panel>
+      </div>
+    }
+  </div>
+</div>

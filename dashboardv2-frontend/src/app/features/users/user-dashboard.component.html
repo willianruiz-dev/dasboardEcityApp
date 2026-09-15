@@ -1,0 +1,70 @@
+  <div class="space-y-5">
+    <app-page-header title="Operadores" subtitle="Directorio de usuarios del dashboard y su actividad atribuida en las transacciones." [fetchedAt]="users.fetchedAt()" />
+
+    @if (users.error(); as message) {
+      <ui-error-state [message]="message" title="No se pudo leer `GET api/User`" hint="Recuerda que esta vista exige el permiso `ReadUsers`." (retry)="reload()" />
+    }
+
+    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      @for (card of kpis(); track card.label) {
+        <ui-stats-card [label]="card.label" [value]="card.value" [format]="card.format ?? 'number'" [icon]="card.icon ?? null" [hint]="card.hint ?? null" [loading]="users.loading()" />
+      }
+    </div>
+
+    @defer (on viewport; prefetch on idle) {
+      <div class="grid gap-3 xl:grid-cols-3">
+        <ui-panel title="Roles y permisos de lectura" subtitle="Cuántos permisos `Read*` aporta cada rol" icon="shield" [loading]="roles.loading()">
+          <ui-chart kind="bar" [labels]="roleLabels()" [series]="roleSeries()" [height]="228" [legend]="false" />
+        </ui-panel>
+
+        <ui-panel class="xl:col-span-2" title="Actividad atribuida" subtitle="Transacciones donde el usuario aparece como `userCreated`" icon="users" [loading]="users.loading()">
+          @if (topOperators().length === 0) {
+            <ui-empty-state title="Sin atribuciones" hint="Las transacciones del periodo no traen `userCreated` coincidente con el directorio." />
+          } @else {
+            <ul class="space-y-2.5">
+              @for (row of topOperators(); track row.user.id) {
+                <li class="flex items-center gap-3">
+                  <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-600 text-[11px] font-bold text-white">{{ initialsOf(row.user) }}</span>
+                  <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{{ row.user.name }} {{ row.user.lastName }}</p>
+                    <p class="truncate text-[11px] text-slate-400">{{ row.user.userName }} · {{ row.user.role }}</p>
+                  </div>
+                  <div class="w-28 shrink-0">
+                    <div class="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      <div class="h-full rounded-full bg-brand-500" [style.width.%]="row.share"></div>
+                    </div>
+                    <p class="tabular mt-0.5 text-right text-[10px] text-slate-400">{{ row.user.operations }} op. · {{ money(row.user.handled) }}</p>
+                  </div>
+                </li>
+              }
+            </ul>
+          }
+        </ui-panel>
+      </div>
+    } @placeholder {
+      <div class="grid gap-3 xl:grid-cols-3">
+        <div class="card p-4"><div class="skeleton h-52 w-full"></div></div>
+        <div class="card p-4 xl:col-span-2"><div class="skeleton h-52 w-full"></div></div>
+      </div>
+    }
+
+    <section class="space-y-2">
+      <h2 class="px-1 text-sm font-semibold text-slate-800 dark:text-slate-100">Directorio</h2>
+      <app-data-table
+        [rows]="rows()"
+        [columns]="columns()"
+        [loading]="users.loading()"
+        [searchKeys]="searchKeys"
+        [pageSize]="15"
+        emptyTitle="Sin operadores"
+        emptyHint="`GET api/User` respondió 404 o el rol no tiene `ReadUsers`."
+      >
+        <div tableActions>
+          <button type="button" class="btn-ghost border border-surface-border px-2.5 py-1.5 text-xs dark:border-surface-border-dark" (click)="reload()">
+            <ui-icon name="refresh" [size]="13" />
+            Actualizar
+          </button>
+        </div>
+      </app-data-table>
+    </section>
+  </div>

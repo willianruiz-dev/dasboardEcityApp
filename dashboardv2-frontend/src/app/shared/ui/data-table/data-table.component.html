@@ -1,0 +1,175 @@
+<div class="flex flex-col">
+  <div class="flex flex-wrap items-center gap-2 px-1 pb-3">
+    @if (hasSearch()) {
+      <label class="relative flex-1 min-w-[190px]">
+        <span class="sr-only">Buscar en la consulta</span>
+        <ui-icon
+          name="search"
+          [size]="15"
+          class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        />
+        <input
+          class="field pl-9"
+          type="search"
+          [value]="query()"
+          (input)="onSearch($any($event.target).value)"
+          placeholder="Buscar referencia, máquina, documento…"
+          autocomplete="off"
+        />
+      </label>
+      @if (isSearching()) {
+        <button type="button" class="btn-ghost px-2 py-1.5" (click)="clearSearch()" aria-label="Limpiar búsqueda">
+          <ui-icon name="close" [size]="15" />
+        </button>
+      }
+    }
+
+    @if (selectable()) {
+      <span class="tabular rounded-lg bg-brand-50 px-2.5 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+        {{ selected().size }} seleccionada(s)
+      </span>
+    }
+
+    <div class="ml-auto flex items-center gap-2">
+      <ng-content select="[tableActions]" />
+      <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+        Filas
+        <select class="field w-auto py-1 text-xs" [value]="size()" (change)="changeSize($event)">
+          @for (option of [10, 25, 50, 100]; track option) {
+            <option [value]="option">{{ option }}</option>
+          }
+        </select>
+      </label>
+    </div>
+  </div>
+
+  <div class="card overflow-hidden">
+    <div class="max-h-[min(70vh,720px)] overflow-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead class="sticky top-0 z-10 bg-slate-50/95 backdrop-blur dark:bg-slate-900/90">
+          <tr class="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            @if (selectable()) {
+              <th class="w-10 px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  [checked]="allOnPageSelected()"
+                  (change)="toggleAll()"
+                  aria-label="Seleccionar página"
+                />
+              </th>
+            }
+            @for (column of columns(); track column.key) {
+              <th
+                class="px-3 py-2.5 font-semibold"
+                [class]="headClass(column)"
+                (click)="toggleSort(column)"
+                [attr.aria-sort]="isSorted(column) ? (sort()!.direction === 'asc' ? 'ascending' : 'descending') : 'none'"
+              >
+                <span class="inline-flex items-center gap-1">
+                  {{ column.label }}
+                  @if (isSorted(column)) {
+                    <ui-icon
+                      name="chevron"
+                      [size]="12"
+                      [class]="sort()!.direction === 'asc' ? 'rotate-180' : 'rotate-90'"
+                    />
+                  }
+                </span>
+              </th>
+            }
+          </tr>
+        </thead>
+
+        <tbody class="divide-y divide-surface-border dark:divide-surface-border-dark">
+          @if (loading()) {
+            @for (row of [0, 1, 2, 3, 4, 5, 6, 7]; track row) {
+              <tr>
+                @if (selectable()) {
+                  <td class="px-3 py-2.5"><div class="skeleton h-3.5 w-3.5"></div></td>
+                }
+                @for (column of columns(); track column.key) {
+                  <td class="px-3 py-2.5">
+                    <div class="skeleton h-3.5" [style.width.%]="60 + ((row * 13) % 35)"></div>
+                  </td>
+                }
+              </tr>
+            }
+          } @else if (view().totalRows === 0) {
+            <tr>
+              <td [attr.colspan]="columns().length + (selectable() ? 1 : 0)" class="px-4 py-14">
+                <div class="flex flex-col items-center gap-2 text-center">
+                  <span class="rounded-full bg-slate-100 p-3 text-slate-400 dark:bg-slate-800">
+                    <ui-icon name="database" [size]="22" />
+                  </span>
+                  <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ emptyTitle() }}</p>
+                  @if (emptyHint()) {
+                    <p class="max-w-sm text-xs text-slate-500 dark:text-slate-400">{{ emptyHint() }}</p>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @else {
+            @for (row of view().rows; track trackBy($index, row)) {
+              <tr
+                class="transition-colors hover:bg-brand-50/60 dark:hover:bg-brand-500/5"
+                [class.cursor-pointer]="clickable()"
+                [class.bg-brand-50]="isRowSelected(row)"
+                (click)="onRowClick(row)"
+              >
+                @if (selectable()) {
+                  <td class="px-3 py-2.5" (click)="$event.stopPropagation()">
+                    <input
+                      type="checkbox"
+                      class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      [checked]="isRowSelected(row)"
+                      (change)="toggleRow(row)"
+                      [attr.aria-label]="'Seleccionar fila ' + rowId(row)"
+                    />
+                  </td>
+                }
+                @for (column of columns(); track column.key) {
+                  <td class="px-3 py-2.5 text-slate-700 dark:text-slate-300" [class]="cellClass(column)">
+                    @switch (column.type) {
+                      @case ('badge') {
+                        <ui-badge [label]="cell(row, column)" [tone]="badgeTone(row, column)" />
+                      }
+                      @case ('id') {
+                        <span class="tabular font-mono text-xs text-slate-500 dark:text-slate-400">{{ cell(row, column) }}</span>
+                      }
+                      @case ('money') {
+                        <span class="tabular font-semibold text-slate-800 dark:text-slate-100">{{ cell(row, column) }}</span>
+                      }
+                      @case ('datetime') {
+                        <span class="tabular text-xs text-slate-500 dark:text-slate-400">{{ $any(row[column.key]) | uiDate: 'full' }}</span>
+                      }
+                      @case ('date') {
+                        <span class="tabular text-xs text-slate-500 dark:text-slate-400">{{ $any(row[column.key]) | uiDate: 'date' }}</span>
+                      }
+                      @case ('mono') {
+                        <span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ cell(row, column) }}</span>
+                      }
+                      @default {
+                        <span>{{ cell(row, column) }}</span>
+                      }
+                    }
+                  </td>
+                }
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <app-table-footer
+      [from]="view().from"
+      [to]="view().to"
+      [totalRows]="view().totalRows"
+      [page]="view().page"
+      [totalPages]="view().totalPages"
+      [filterNote]="isSearching() ? 'filtrado por “' + query() + '”' : null"
+      (pageChange)="page.set($event)"
+    />
+  </div>
+</div>
