@@ -92,7 +92,7 @@
           <ui-error-state [message]="message" title="No se pudo leer el contenido de la máquina" (retry)="board.storage.reload()" />
         }
 
-        <ui-panel title="Contenido de caja" subtitle="`GET api/PayPad/GetStorage/{id}`" icon="cash" [loading]="board.storage.loading()">
+        <ui-panel title="Contenido de caja" subtitle="Denominaciones y saldos actuales" icon="cash" [loading]="board.storage.loading()">
           @if (board.storage.isEmpty()) {
             <ui-empty-state title="Sin inventario reportado" hint="La máquina no ha enviado arqueos o el SP respondió 404." />
           } @else {
@@ -101,7 +101,7 @@
         </ui-panel>
 
         <div class="grid gap-3 xl:grid-cols-2">
-          <ui-panel title="Arqueos" subtitle="`GET api/Tonnage/GetByPaypad/{id}`" icon="database" [loading]="board.tonnages.loading()">
+          <ui-panel title="Arqueos" subtitle="Historial de arqueos" icon="database" [loading]="board.tonnages.loading()">
             <ul class="space-y-2">
               @for (tonnage of board.tonnages.data(); track tonnage.id) {
                 <li class="flex items-center justify-between gap-2 rounded-lg border border-surface-border px-3 py-2 text-xs dark:border-surface-border-dark">
@@ -115,7 +115,7 @@
             </ul>
           </ui-panel>
 
-          <ui-panel title="Cargues" subtitle="`GET api/Load/GetByPaypad/{id}`" icon="plus" [loading]="board.loads.loading()">
+          <ui-panel title="Cargues" subtitle="Historial de recargas" icon="plus" [loading]="board.loads.loading()">
             <ul class="space-y-2">
               @for (load of board.loads.data(); track load.id) {
                 <li class="flex items-center justify-between gap-2 rounded-lg border border-surface-border px-3 py-2 text-xs dark:border-surface-border-dark">
@@ -130,7 +130,7 @@
           </ui-panel>
         </div>
 
-        <ui-panel title="Últimos movimientos" subtitle="`GET api/Transaction/{id}` — 12 más recientes" icon="receipt" [loading]="board.recent.loading()">
+        <ui-panel title="Últimos movimientos" subtitle="12 más recientes" icon="receipt" [loading]="board.recent.loading()">
           <app-data-table [rows]="recentRows()" [columns]="recentColumns()" [pageSize]="12" [searchKeys]="['reference', 'product', 'id']" emptyTitle="Sin movimientos" />
         </ui-panel>
       </div>
