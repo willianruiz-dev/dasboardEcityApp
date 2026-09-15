@@ -10,6 +10,9 @@ export interface QueryOptions {
   params?: Record<string, string | number | boolean>;
   /** Valor devuelto cuando la API responde 404 ("no se encontró resultado"). */
   emptyValue?: unknown;
+  /** Override para Auth que vive sin prefijo api en tu servidor (api/Auth/Login -> 404). */
+  prefix?: string;
+  baseUrl?: string;
 }
 
 /**
@@ -55,7 +58,10 @@ export class ApiClientService {
   }
 
   private request<T>(method: 'GET' | 'POST', path: string, body: unknown, options: QueryOptions): Observable<T> {
-    const url = buildUrl(path);
+    const url =
+      options.baseUrl !== undefined || options.prefix !== undefined
+        ? buildUrl(path, options.baseUrl as string | undefined, options.prefix as string | undefined)
+        : buildUrl(path);
     const config = { params: this.toParams(options.params) };
 
     const call$ =

@@ -12,12 +12,15 @@ export class HttpSecurityAdapter extends SecurityPort {
   private readonly api = inject(ApiClientService);
 
   override login(request: LoginRequest): Observable<string> {
-    return this.api.postQuery<string>(ApiPath.auth.login, request, { emptyValue: '' });
+    // AuthController tiene DOBLE ruta: api/Auth/Login y Auth/Login.
+    // Tu servidor apidashboardv2.e-city.co da 404 en /api/Auth/Login (lo probaste con node), así que usamos sin prefijo.
+    // Para Transaction/PayPad seguimos con prefix 'api' normal.
+    return this.api.postQuery<string>(ApiPath.auth.login, request, { emptyValue: '', prefix: '' });
   }
 
   /** `Auth/Logout` es GET: revoca la sesión en `security.Session`. */
   override logout(): Observable<boolean> {
-    return this.api.get<boolean>(ApiPath.auth.logout, { emptyValue: false });
+    return this.api.get<boolean>(ApiPath.auth.logout, { emptyValue: false, prefix: '' });
   }
 
   override loggedUser(): Observable<User | null> {
